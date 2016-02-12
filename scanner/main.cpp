@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 	
 		data += *(u_int16_t *)(data+2); // Skip Radiotap Header
 		memcpy(&bf_header, data, 0x18);
-		if(bf_header.frame_control != 0x0050) continue; // Probe response only
+		if(bf_header.frame_control != 0x0050 && bf_header.frame_control != 0x0040) continue; // Probe response and request only
 		sprintf(src, "%02X:%02X:%02X:%02X:%02X:%02X", bf_header.src[0], bf_header.src[1], bf_header.src[2], bf_header.src[3], bf_header.src[4], bf_header.src[5]);
 		sprintf(dest, "%02X:%02X:%02X:%02X:%02X:%02X", bf_header.dest[0], bf_header.dest[1], bf_header.dest[2], bf_header.dest[3], bf_header.dest[4], bf_header.dest[5]);
 		cout << "SRC : " << src << "    DEST : " << dest << endl;
