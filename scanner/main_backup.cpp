@@ -10,11 +10,8 @@
 #include <cstring>
 #include <iostream>
 #include <mysql/mysql.h>
-#include <vector>
 #include <string>
-#include <algorithm>
-#include <unistd.h>
-
+#include <vector>
 using namespace std;
 
 #define BUFSIZE 65536
@@ -39,8 +36,9 @@ typedef struct ieee80211_wlan_management {
 } IEEE80211 ;
 #pragma pack(pop)
 
-bool isContain(std::vector<string>*, string);
-bool insertQuery(MYSQL *, char *query);
+
+bool isContain(char **, char *, int);
+
 
 int main(int argc, char *argv[])
 {
@@ -59,25 +57,31 @@ int main(int argc, char *argv[])
     	mysql_init(&pMysql);
     	mysql_options(&pMysql, MYSQL_READ_DEFAULT_GROUP, "my_prog_name");
     	int flag = false;
-	std::vector<string> mac_list;
+	char **mac_list;
 
 	if(!mysql_real_connect(&pMysql, "localhost", "ID", "PASSWD", "wdds_db", 3306, NULL, 0)){
     	    fprintf(stderr, "[*] Failed to Connect to the database : %s\n", mysql_error(&pMysql));
 		return 1;
     	}
 
-	insertQuery(&pMysql, sql_buf);
+	if(mysql_real_query(&pMysql, sql_buf, strlen(sql_buf))){ 
+                printf("[*] An Error occured in mysql_real_query : %s\n", mysql_error(&pMysql));  // Error Occured
+               	return 1;
+        }
 
 	res = mysql_store_result(&pMysql);
 	field_num = mysql_num_fields(res);
 	row_num = mysql_num_rows(res);
 
+	mac_list = (char **)malloc(row_num * sizeof(char *));
+	
 	cout << "[*] Saved MAC Address" << endl;
 	cout << "Field_num : " << field_num << endl;
 	tmp = 0;
 	while((row = mysql_fetch_row(res))){                    // print rows
         	printf("|%17s|\n", row[0] ? row[0] : "NULL");
-		mac_list.push_back(row[0] ? row[0] : "NULL");
+		mac_list[tmp] = (char *)malloc(18);
+		strcpy(mac_list[tmp++], row[0] ? row[0] : "NULL");
         }
 	char errBuf[256];
 	const u_char *data;
@@ -104,25 +108,37 @@ int main(int argc, char *argv[])
 		sprintf(src, "%02X:%02X:%02X:%02X:%02X:%02X", bf_header.src[0], bf_header.src[1], bf_header.src[2], bf_header.src[3], bf_header.src[4], bf_header.src[5]);
 		sprintf(dest, "%02X:%02X:%02X:%02X:%02X:%02X", bf_header.dest[0], bf_header.dest[1], bf_header.dest[2], bf_header.dest[3], bf_header.dest[4], bf_header.dest[5]);
 		cout << "SRC : " << src << "    DEST : " << dest << endl;
-		if(!isContain(&mac_list, std::string(src))) {
+		if(!isContain(mac_list, src, row_num)) {
 			sprintf(query, "INSERT INTO `user` (name, mac_addr) VALUES ('Unknown', '%s')", src);
-			insertQuery(&pMysql, query);
-			mac_list.push_back(src);
-			cout << "Pushed" << endl;
+			if(mysql_real_query(&pMysql, query, strlen(query))){
+                               printf("[*] An Error occured in mysql_real_query : %s\n", mysql_error(&pMysql));  // Error Occured
+                               return 1;
+                        }
+                        cout << "[*] Query injected : " << query << endl;
 		} else {
                         sprintf(query, "INSERT INTO `log` (mac_addr) VALUES ('%s')", src);
-                	insertQuery(&pMysql, query);
-		}
+                        if(mysql_real_query(&pMysql, query, strlen(query))){
+                               printf("[*] An Error occured in mysql_real_query : %s\n", mysql_error(&pMysql));  // Error Occured
+                               return 1;
+                        }
+                        cout << "[*] Query injected : " << query << endl;
+                }
 
-		if(!isContain(&mac_list, std::string(dest))) {
+		if(!isContain(mac_list, dest, row_num)) {
                         sprintf(query, "INSERT INTO `user` (name, mac_addr) VALUES ('Unknown', '%s')", dest);
-			insertQuery(&pMysql, query);
-			mac_list.push_back(dest);
-			cout << "Pushed" << endl;
+                        if(mysql_real_query(&pMysql, query, strlen(query))){
+                               printf("[*] An Error occured in mysql_real_query : %s\n", mysql_error(&pMysql));  // Error Occured
+                               return 1;
+                        }
+                        cout << "[*] Query injected : " << query << endl;
                 } else {
                         sprintf(query, "INSERT INTO `log` (mac_addr) VALUES ('%s')", dest);
-                	insertQuery(&pMysql, query);
-		}									// @ ToDo : MySQL Query function & etc...
+                        if(mysql_real_query(&pMysql, query, strlen(query))){
+                               printf("[*] An Error occured in mysql_real_query : %s\n", mysql_error(&pMysql));  // Error Occured
+                               return 1;
+                        }
+                        cout << "[*] Query injected : " << query << endl;
+                }
 
 		/*flag = false;
 		for(int i=0; i<row_num ; i++) if( !strcmp(mac_list[i], src) || !strcmp(mac_list[i], dest) ) {
@@ -139,21 +155,13 @@ int main(int argc, char *argv[])
 		}*/
 	}
 	
+	for(int i=0; i<field_num; i++) free(row[i]);
+	free(mac_list);
 	return 0;
 }
 
 
-bool isContain(std::vector<string> *mac_list, std::string comp) {
-	if( std::find(mac_list->begin(), mac_list->end(), comp) != mac_list->end() ) return true;
+bool isContain(char **mac_list, char *comp, int row_num) {
+	for(int i=0; i<row_num; i++) if(!strcmp(mac_list[i], comp)) return true;
 	return false;
-}
-
-bool insertQuery(MYSQL *pMysql, char *query)
-{	
-	cout << "[*] Query injected : " << query << endl;
-	if(mysql_real_query(pMysql, query, strlen(query))){
-		printf("[*] An Error occured in mysql_real_query : %s\n", mysql_error(pMysql));  // Error Occured
-              	return false;
-        }
-	return true;
 }
