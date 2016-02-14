@@ -1,9 +1,11 @@
 CREATE TABLE `user` (`mac_addr` VARCHAR(18) NOT NULL PRIMARY KEY, `name` varchar(20) not null) ENGINE=InnoDB;
 
-CREATE TABLE `log` (`mac_addr` VARCHAR(18) NOT NULL, `time`  TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB;
+CREATE TABLE `log` (`mac_addr` VARCHAR(18) NOT NULL, `time`  TIMESTAMP DEFAULT CURRENT_TIMESTAMP, flag int not null) ENGINE=InnoDB;
 
-INSERT INTO `user` (`name`, `mac_addr`) VALUES ('John', 'AA:BB:CC:DD:EE:FF:00'), ('Alice', '11:22:33:44:55:66');
+CREATE TABLE `temp_log` (`mac_addr` VARCHAR(18) NOT NULL);
 
-INSERT INTO `log` (`mac_addr`) VALUES ('AA:BB:CC:DD:EE:FF:00'), ('11:22:33:44:55:66'), ('AA:BB:CC:DD:EE:FF:00');
+INSERT INTO `user` (`name`, `mac_addr`) VALUES ('John', 'AA:BB:CC:DD:EE:FF'), ('Alice', '11:22:33:44:55:66');
+
+INSERT INTO `log` (`mac_addr`) VALUES ('AA:BB:CC:DD:EE:FF'), ('11:22:33:44:55:66'), ('AA:BB:CC:DD:EE:FF');
 
 SELECT user.name, user.mac_addr, log.time FROM user INNER JOIN `log` WHERE log.mac_addr=user.mac_addr;

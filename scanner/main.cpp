@@ -42,9 +42,6 @@ typedef struct ieee80211_wlan_management {
 
 bool isContain(std::vector<string>*, string);
 bool insertQuery(MYSQL *, char *query);
-void *timer(void *);
-void dataLogging(MYSQL *pMysql);
-
 
 int main(int argc, char *argv[])
 {
@@ -83,7 +80,6 @@ int main(int argc, char *argv[])
 	tmp = 0;
 	while((row = mysql_fetch_row(res))){                    // print rows
         	printf("|%17s|\n", row[0] ? row[0] : "NULL");
-		mac_list.push_back(row[0] ? row[0] : "NULL");
         }
 	char errBuf[256];
 	const u_char *data;
@@ -99,11 +95,33 @@ int main(int argc, char *argv[])
 	cout << "[*] Please input any key to start scanning" << endl;
 	getchar();
 
-	if(pthread_create(&timerThread, NULL, timer, (void *)&pMysql)) {
-		cout << "Threading Error!!" << endl;
-		return 1;
-	};
-	while(true) {	
+	unsigned int cur = (unsigned int)time(NULL);
+	while(true) {
+		if(time(NULL) - cur == 180) {
+			mac_list.clear();
+			cout << "[*] 180 seconds : Started Logging " << endl;
+			cur += 180;
+
+			insertQuery(&pMysql, "SELECT DISTINCT(mac_addr) FROM `temp_log`");
+			res = mysql_store_result(&pMysql);
+		
+		        cout << "[*] Saved MAC Address" << endl;
+		        while((row = mysql_fetch_row(res))){                    // print rows
+				sprintf(query, "INSERT INTO `user` (mac_addr, name) VALUES ('%s', 'Unknown')", row[0]);
+				insertQuery(&pMysql, query);
+				sprintf(query, "INSERT INTO `log` (mac_addr, flag) VALUES ('%s', 1)", row[0]);
+                                insertQuery(&pMysql, query);
+		                mac_list.push_back(row[0] ? row[0] : "NULL");
+		        }
+			insertQuery(&pMysql, "SELECT DISTINCT user.mac_addr FROM `user` LEFT JOIN `temp_log` ON user.mac_addr=temp_log.mac_addr WHERE temp_log.mac_addr IS NULL");
+			res = mysql_store_result(&pMysql);
+			while((row = mysql_fetch_row(res))){
+				sprintf(query, "INSERT INTO `log` (mac_addr, flag) VALUES ('%s', 0)", row[0]);
+				insertQuery(&pMysql, query);
+			}
+			insertQuery(&pMysql, "DELETE FROM `temp_log`");
+			cout << "[*] End Logging" << endl;
+		}
 		int res = pcap_next_ex(handle, &pkthdr, &data);
 
 		if(res == 0) continue;
@@ -119,20 +137,6 @@ int main(int argc, char *argv[])
                 insertQuery(&pMysql, query);
 		sprintf(query, "INSERT INTO `temp_log` (mac_addr) VALUES ('%s')", dest);
                 insertQuery(&pMysql, query);
-
-		/*flag = false;
-		for(int i=0; i<row_num ; i++) if( !strcmp(mac_list[i], src) || !strcmp(mac_list[i], dest) ) {
-			sprintf(query, "INSERT INTO `log` (mac_addr) VALUES ('%s')", mac_list[i]);
-			if(mysql_real_query(&pMysql, query, strlen(query))){
-         		       printf("[*] An Error occured in mysql_real_query : %s\n", mysql_error(&pMysql));  // Error Occured
-         		       return 1;
-        		}
-			cout << "[*] Query injected : " << query << endl;
-			flag = true;
-		}
-		if(!flag) {
-			sprintf(query,"INSERT INTO `user` (name, mac_addr) VALUES ('Unknown', '%s')", 
-		}*/
 	}
 	
 	return 0;
@@ -155,32 +159,3 @@ bool insertQuery(MYSQL *pMysql, char *query)
 	return true;
 }
 
-void *timer(void *tmp)
-{
-	MYSQL pMysql = (MYSQL &)tmp;
-	unsigned int cur, next;
-	cur = (unsigned int)time(NULL);
-	while(true)
-	{
-		next = (unsigned int)time(NULL);
-		if((next - 10) == cur) {
-			dataLogging(&pMysql);
-		}
-	}	
-}
-
-void dataLogging(MYSQL *pMysql)
-{
-	MYSQL_RES *res;
-	MYSQL_FIELD *field;
-        MYSQL_ROW row;
-	char query[SQL_BUFSIZE];
-	insertQuery(pMysql, "SELECT DISTINCT(mac_addr) from temp_log");
-	res = mysql_store_result(pMysql);
-	int field_num = mysql_num_fields(res);
-        int row_num = mysql_num_rows(res);
-	while((row = mysql_fetch_row(res))){
-		sprintf(query, "INSERT INTO `log` (mac_addr) values ('%s')", row[0]);
-		insertQuery(pMysql, query);
-        }
-}
