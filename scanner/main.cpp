@@ -75,8 +75,7 @@ int main(int argc, char *argv[])
 	field_num = mysql_num_fields(res);
 	row_num = mysql_num_rows(res);
 
-	cout << "[*] Saved MAC Address" << endl;
-	cout << "Field_num : " << field_num << endl;
+	cout << "[*][*] Saved MAC Address" << endl;
 	tmp = 0;
 	while((row = mysql_fetch_row(res))){                    // print rows
         	printf("|%17s|\n", row[0] ? row[0] : "NULL");
@@ -92,27 +91,35 @@ int main(int argc, char *argv[])
         	fprintf(stderr, "Couldn't open device %s : %s\n",  argv[1], errBuf);
         	return 1;
    	}
-	cout << "[*] Please input any key to start scanning" << endl;
+	cout << "[*][*] Please input any key to start scanning" << endl;
 	getchar();
 
 	unsigned int cur = (unsigned int)time(NULL);
 	while(true) {
 		if(time(NULL) - cur == 180) {
 			mac_list.clear();
-			cout << "[*] 180 seconds : Started Logging " << endl;
+			cout << "[*][*] 180 seconds passed : Started Logging " << endl;
 			cur += 180;
+
+			insertQuery(&pMysql, "SELECT DISTINCT temp_log.mac_addr FROM `temp_log` LEFT JOIN `user` ON user.mac_addr=temp_log.mac_addr WHERE user.mac_addr IS NULL");
+                        res = mysql_store_result(&pMysql);
+			cout << "[*][*] New user adding";
+			while((row = mysql_fetch_row(res))){
+				sprintf(query, "INSERT INTO `user` (mac_addr, name) VALUES ('%s', 'Unknown')", row[0]);
+                                insertQuery(&pMysql, query);
+			}
 
 			insertQuery(&pMysql, "SELECT DISTINCT(mac_addr) FROM `temp_log`");
 			res = mysql_store_result(&pMysql);
 		
-		        cout << "[*] Saved MAC Address" << endl;
+		        cout << "[*][*] Catched MAC logging" << endl;
 		        while((row = mysql_fetch_row(res))){                    // print rows
-				sprintf(query, "INSERT INTO `user` (mac_addr, name) VALUES ('%s', 'Unknown')", row[0]);
-				insertQuery(&pMysql, query);
 				sprintf(query, "INSERT INTO `log` (mac_addr, flag) VALUES ('%s', 1)", row[0]);
                                 insertQuery(&pMysql, query);
 		                mac_list.push_back(row[0] ? row[0] : "NULL");
 		        }
+			
+			cout << "[*][*] Non-Catched MAC logging" << endl;
 			insertQuery(&pMysql, "SELECT DISTINCT user.mac_addr FROM `user` LEFT JOIN `temp_log` ON user.mac_addr=temp_log.mac_addr WHERE temp_log.mac_addr IS NULL");
 			res = mysql_store_result(&pMysql);
 			while((row = mysql_fetch_row(res))){
@@ -120,7 +127,7 @@ int main(int argc, char *argv[])
 				insertQuery(&pMysql, query);
 			}
 			insertQuery(&pMysql, "DELETE FROM `temp_log`");
-			cout << "[*] End Logging" << endl;
+			cout << "[*][*] End Logging" << endl;
 		}
 		int res = pcap_next_ex(handle, &pkthdr, &data);
 

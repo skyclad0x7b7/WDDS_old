@@ -8,4 +8,4 @@ INSERT INTO `user` (`name`, `mac_addr`) VALUES ('John', 'AA:BB:CC:DD:EE:FF'), ('
 
 INSERT INTO `log` (`mac_addr`) VALUES ('AA:BB:CC:DD:EE:FF'), ('11:22:33:44:55:66'), ('AA:BB:CC:DD:EE:FF');
 
-SELECT user.name, user.mac_addr, log.time FROM user INNER JOIN `log` WHERE log.mac_addr=user.mac_addr;
+SELECT user.name, log.mac_addr, log.time, log.flag FROM `user` INNER JOIN `log` WHERE user.mac_addr=log.mac_addr;
